@@ -129,4 +129,4 @@ export default function MyComponent() {
 
 ## API
 
-See the [example.tsx](./example.tsx) file for more detailed usage examples.
+See the [example.tsx](https://github.com/Shivampatel07/react-edge-dock/blob/master/example.tsx) file for more detailed usage examples.

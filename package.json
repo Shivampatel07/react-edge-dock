@@ -11,12 +11,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/react-edge-dock.git"
+    "url": "https://github.com/Shivampatel07/react-edge-dock"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/react-edge-dock/issues"
+    "url": "https://github.com/Shivampatel07/react-edge-dock/issues"
   },
-  "homepage": "https://github.com/yourusername/react-edge-dock#readme",
+  "homepage": "https://github.com/Shivampatel07/react-edge-dock#readme",
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
