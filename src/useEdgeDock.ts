@@ -234,6 +234,7 @@ export function useEdgeDock(config: EdgeDockConfig = {}): UseEdgeDockReturn {
     startPosX: 0,
     startPosY: 0,
     hasMoved: false,
+    popupWasOpen: false,
   });
 
   const isPopupOpen = controlledPopupOpen ?? isPopupOpenInternal;
@@ -278,6 +279,29 @@ export function useEdgeDock(config: EdgeDockConfig = {}): UseEdgeDockReturn {
     }
   }, [controlledPosition]);
 
+  // Toggle popup
+  const togglePopup = useCallback(() => {
+    const newState = !isPopupOpen;
+    if (controlledPopupOpen === undefined) {
+      setIsPopupOpenInternal(newState);
+    }
+    onPopupChange?.(newState);
+  }, [isPopupOpen, controlledPopupOpen, onPopupChange]);
+
+  const closePopup = useCallback(() => {
+    if (controlledPopupOpen === undefined) {
+      setIsPopupOpenInternal(false);
+    }
+    onPopupChange?.(false);
+  }, [controlledPopupOpen, onPopupChange]);
+
+  const openPopup = useCallback(() => {
+    if (controlledPopupOpen === undefined) {
+      setIsPopupOpenInternal(true);
+    }
+    onPopupChange?.(true);
+  }, [controlledPopupOpen, onPopupChange]);
+
   // Calculate popup position when it opens or button moves
   useEffect(() => {
     if (isPopupOpen && buttonRef.current && popupRef.current) {
@@ -296,6 +320,33 @@ export function useEdgeDock(config: EdgeDockConfig = {}): UseEdgeDockReturn {
       setPopupOrigin(result.origin);
     }
   }, [isPopupOpen, position, popupGap]);
+
+  // Close popup when clicking outside
+  useEffect(() => {
+    if (!isPopupOpen || !isBrowser) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      
+      // Check if click is outside both button and popup
+      const isOutsideButton = buttonRef.current && !buttonRef.current.contains(target);
+      const isOutsidePopup = popupRef.current && !popupRef.current.contains(target);
+      
+      if (isOutsideButton && isOutsidePopup) {
+        closePopup();
+      }
+    };
+
+    // Use setTimeout to avoid closing immediately on the same click that opened it
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+    }, 0);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isPopupOpen, closePopup]);
 
   // Notify state changes
   useEffect(() => {
@@ -328,29 +379,6 @@ export function useEdgeDock(config: EdgeDockConfig = {}): UseEdgeDockReturn {
     setPositionInternal(finalPos);
   }, [dockMode, dockEdge, allowedEdges, edgeOffset]);
 
-  // Toggle popup
-  const togglePopup = useCallback(() => {
-    const newState = !isPopupOpen;
-    if (controlledPopupOpen === undefined) {
-      setIsPopupOpenInternal(newState);
-    }
-    onPopupChange?.(newState);
-  }, [isPopupOpen, controlledPopupOpen, onPopupChange]);
-
-  const closePopup = useCallback(() => {
-    if (controlledPopupOpen === undefined) {
-      setIsPopupOpenInternal(false);
-    }
-    onPopupChange?.(false);
-  }, [controlledPopupOpen, onPopupChange]);
-
-  const openPopup = useCallback(() => {
-    if (controlledPopupOpen === undefined) {
-      setIsPopupOpenInternal(true);
-    }
-    onPopupChange?.(true);
-  }, [controlledPopupOpen, onPopupChange]);
-
   // Pointer down handler
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (!buttonRef.current) return;
@@ -368,16 +396,12 @@ export function useEdgeDock(config: EdgeDockConfig = {}): UseEdgeDockReturn {
       startPosX: position.x,
       startPosY: position.y,
       hasMoved: false,
+      popupWasOpen: isPopupOpen,
     };
 
     setIsDragging(true);
     setIsAnimating(false);
-
-    // Close popup when starting to drag
-    if (isPopupOpen) {
-      closePopup();
-    }
-  }, [position, isPopupOpen, closePopup]);
+  }, [position, isPopupOpen]);
 
   // Pointer move handler
   useEffect(() => {
@@ -389,6 +413,12 @@ export function useEdgeDock(config: EdgeDockConfig = {}): UseEdgeDockReturn {
 
       // Mark as moved if dragged more than 5px
       if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+        if (!dragStateRef.current.hasMoved) {
+          // First time detecting movement - close popup if it was open
+          if (dragStateRef.current.popupWasOpen) {
+            closePopup();
+          }
+        }
         dragStateRef.current.hasMoved = true;
       }
 
@@ -445,7 +475,7 @@ export function useEdgeDock(config: EdgeDockConfig = {}): UseEdgeDockReturn {
       document.removeEventListener('pointermove', handlePointerMove);
       document.removeEventListener('pointerup', handlePointerUp);
     };
-  }, [position, dockMode, dockEdge, animation, edgeOffset, allowedEdges]);
+  }, [position, dockMode, dockEdge, animation, edgeOffset, allowedEdges, closePopup]);
 
   // Click handler (only trigger if not dragged)
   const handleClick = useCallback((e: React.MouseEvent) => {
