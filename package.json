@@ -1,6 +1,6 @@
 {
   "name": "react-edge-dock",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "A zero-dependency React TypeScript library for customizable draggable edge-docked floating buttons with popup support",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
@@ -16,13 +16,14 @@
   "bugs": {
     "url": "https://github.com/Shivampatel07/react-edge-dock/issues"
   },
-  "homepage": "https://github.com/Shivampatel07/react-edge-dock#readme",
+  "homepage": "https://react-edge-dock.vercel.app",
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run clean && npm run build",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "publish": "npm publish --access public"
   },
   "keywords": [
     "react",
