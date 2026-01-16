@@ -8,6 +8,8 @@ import type {
   ViewportBounds,
   ElementDimensions,
   EdgeOffset,
+  StickyConfig,
+  StickyPosition,
 } from './types';
 
 /**
@@ -193,6 +195,85 @@ function calculatePopupPosition(
 }
 
 /**
+ * Resolve sticky position based on viewport width
+ */
+function resolveStickyConfig(
+  config: StickyConfig | undefined,
+  viewportWidth: number
+): StickyPosition | undefined {
+  if (!config) return undefined;
+
+  // Single position object
+  if ('top' in config || 'bottom' in config || 'left' in config || 'right' in config) {
+    return config as StickyPosition;
+  }
+
+  // Array format: [mobile, tablet, desktop, largeDesktop]
+  if (Array.isArray(config)) {
+    if (viewportWidth < 768) return config[0];
+    if (viewportWidth < 1024) return config[1] ?? config[0];
+    if (viewportWidth < 1440) return config[2] ?? config[1] ?? config[0];
+    return config[3] ?? config[2] ?? config[1] ?? config[0];
+  }
+
+  // Object format with named breakpoints
+  const breakpoints = config as {
+    mobile?: StickyPosition;
+    tablet?: StickyPosition;
+    desktop?: StickyPosition;
+    largeDesktop?: StickyPosition;
+  };
+
+  if (viewportWidth < 768) return breakpoints.mobile;
+  if (viewportWidth < 1024) return breakpoints.tablet ?? breakpoints.mobile;
+  if (viewportWidth < 1440) return breakpoints.desktop ?? breakpoints.tablet ?? breakpoints.mobile;
+  return breakpoints.largeDesktop ?? breakpoints.desktop ?? breakpoints.tablet ?? breakpoints.mobile;
+}
+
+/**
+ * Calculate absolute coordinates from sticky position
+ */
+function calculateStickyCoordinates(
+  stickyPos: StickyPosition,
+  viewport: ViewportBounds
+): Position {
+  let x = 0;
+  let y = 0;
+
+  // Helper to resolve value (number or percentage string)
+  const resolveVal = (val: number | string, dimension: number): number => {
+    if (typeof val === 'number') return val;
+    if (typeof val === 'string' && val.endsWith('%')) {
+      return (parseFloat(val) / 100) * dimension;
+    }
+    return parseFloat(val) || 0;
+  };
+
+  // Horizontal
+  if (stickyPos.left !== undefined) {
+    x = resolveVal(stickyPos.left, viewport.width);
+  } else if (stickyPos.right !== undefined) {
+    x = viewport.width - resolveVal(stickyPos.right, viewport.width);
+  } else {
+    // Default to center if neither specified? Or default to checking dockMode...
+    // For sticky, let's assume if omitted, it stays current or 0. 
+    // But returning 0 might jump. Let's assume left: 0 if nothing.
+    x = 0;
+  }
+
+  // Vertical
+  if (stickyPos.top !== undefined) {
+    y = resolveVal(stickyPos.top, viewport.height);
+  } else if (stickyPos.bottom !== undefined) {
+    y = viewport.height - resolveVal(stickyPos.bottom, viewport.height);
+  } else {
+    y = 0;
+  }
+
+  return { x, y };
+}
+
+/**
  * Main hook for edge dock functionality
  */
 export function useEdgeDock(config: EdgeDockConfig = {}): UseEdgeDockReturn {
@@ -209,6 +290,7 @@ export function useEdgeDock(config: EdgeDockConfig = {}): UseEdgeDockReturn {
     isPopupOpen: controlledPopupOpen,
     onPopupChange,
     draggable = true,
+    sticky,
   } = config;
 
   const buttonRef = useRef<HTMLDivElement>(null);
@@ -258,20 +340,51 @@ export function useEdgeDock(config: EdgeDockConfig = {}): UseEdgeDockReturn {
 
       // Set initial position on client after mount
       let initialPos = { x: viewport.width - 60, y: viewport.height - 60 };
-      initialPos = constrainToViewport(initialPos, viewport, buttonDimensions, edgeOffset);
 
-      if (dockMode === 'auto') {
-        const edge = getClosestEdge(initialPos, viewport, allowedEdges);
-        initialPos = snapToEdge(initialPos, edge, viewport, buttonDimensions, edgeOffset);
-        setDockedEdge(edge);
-      } else if (dockMode === 'manual' && dockEdge) {
-        initialPos = snapToEdge(initialPos, dockEdge, viewport, buttonDimensions, edgeOffset);
-        setDockedEdge(dockEdge);
+
+      // Check for sticky config first if not draggable
+      if (!draggable && sticky) {
+        const stickyPos = resolveStickyConfig(sticky, viewport.width);
+        if (stickyPos) {
+          initialPos = calculateStickyCoordinates(stickyPos, viewport);
+          // Adjust for center origin point of the button
+          // The button is positioned with transform: translate(-50%, -50%)
+          // So if sticky says left: 20, right now x=20.
+          // However, calculateStickyCoordinates returns the exact point for left/top.
+          // If we use that directly with translate(-50%, -50%), the center of button is at that point.
+          // Usually sticky means "distance from edge to edge of element".
+          // If left: 20, we want left edge of button at 20.
+          // So center should be 20 + width/2.
+
+          if (stickyPos.left !== undefined) {
+            initialPos.x += buttonDimensions.width / 2;
+          } else if (stickyPos.right !== undefined) {
+            initialPos.x -= buttonDimensions.width / 2;
+          }
+
+          if (stickyPos.top !== undefined) {
+            initialPos.y += buttonDimensions.height / 2;
+          } else if (stickyPos.bottom !== undefined) {
+            initialPos.y -= buttonDimensions.height / 2;
+          }
+        }
+      } else {
+        // Normal dock logic
+        initialPos = constrainToViewport(initialPos, viewport, buttonDimensions, edgeOffset);
+
+        if (dockMode === 'auto') {
+          const edge = getClosestEdge(initialPos, viewport, allowedEdges);
+          initialPos = snapToEdge(initialPos, edge, viewport, buttonDimensions, edgeOffset);
+          setDockedEdge(edge);
+        } else if (dockMode === 'manual' && dockEdge) {
+          initialPos = snapToEdge(initialPos, dockEdge, viewport, buttonDimensions, edgeOffset);
+          setDockedEdge(dockEdge);
+        }
       }
 
       setPositionInternal(initialPos);
     }
-  }, [controlledPosition, dockMode, dockEdge, allowedEdges, edgeOffset]);
+  }, [controlledPosition, dockMode, dockEdge, allowedEdges, edgeOffset, draggable, sticky]);
 
   // Update controlled position
   useEffect(() => {
@@ -499,7 +612,30 @@ export function useEdgeDock(config: EdgeDockConfig = {}): UseEdgeDockReturn {
         const viewport = getViewport();
         const buttonDimensions = { width: buttonRect.width, height: buttonRect.height };
 
-        let newPos = constrainToViewport(position, viewport, buttonDimensions, edgeOffset);
+        let newPos = position;
+
+        if (!draggable && sticky) {
+          const stickyPos = resolveStickyConfig(sticky, viewport.width);
+          if (stickyPos) {
+            newPos = calculateStickyCoordinates(stickyPos, viewport);
+            // Adjust for center origin
+            if (stickyPos.left !== undefined) {
+              newPos.x += buttonDimensions.width / 2;
+            } else if (stickyPos.right !== undefined) {
+              newPos.x -= buttonDimensions.width / 2;
+            }
+
+            if (stickyPos.top !== undefined) {
+              newPos.y += buttonDimensions.height / 2;
+            } else if (stickyPos.bottom !== undefined) {
+              newPos.y -= buttonDimensions.height / 2;
+            }
+            setPositionInternal(newPos);
+            return;
+          }
+        }
+
+        newPos = constrainToViewport(position, viewport, buttonDimensions, edgeOffset);
 
         if (dockMode === 'auto') {
           const edge = getClosestEdge(newPos, viewport, allowedEdges);
@@ -515,7 +651,7 @@ export function useEdgeDock(config: EdgeDockConfig = {}): UseEdgeDockReturn {
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [position, dockMode, dockEdge, edgeOffset, allowedEdges]);
+  }, [position, dockMode, dockEdge, edgeOffset, allowedEdges, draggable, sticky]);
 
   // Button styles
   const buttonStyles: React.CSSProperties = {

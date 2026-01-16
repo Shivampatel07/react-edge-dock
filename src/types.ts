@@ -70,7 +70,37 @@ export interface EdgeDockConfig {
   onPopupChange?: (isOpen: boolean) => void;
   /** Whether the button is draggable. Defaults to true. */
   draggable?: boolean;
+  /**
+   * Sticky position configuration for non-draggable mode.
+   * Can be a single position, an array of positions (for responsive),
+   * or an object with named breakpoints.
+   */
+  sticky?: StickyConfig;
 }
+
+/**
+ * Sticky position coordinates.
+ * Values can be numbers (pixels) or strings (percentage/css units).
+ */
+export interface StickyPosition {
+  top?: number | string;
+  bottom?: number | string;
+  left?: number | string;
+  right?: number | string;
+}
+
+/**
+ * Sticky configuration supporting responsive breakpoints.
+ */
+export type StickyConfig =
+  | StickyPosition
+  | StickyPosition[]
+  | {
+    mobile?: StickyPosition;      // < 768px
+    tablet?: StickyPosition;      // 768px - 1024px
+    desktop?: StickyPosition;     // 1024px - 1440px
+    largeDesktop?: StickyPosition; // > 1440px
+  };
 
 /**
  * Props for EdgeDock component
