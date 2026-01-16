@@ -208,6 +208,7 @@ export function useEdgeDock(config: EdgeDockConfig = {}): UseEdgeDockReturn {
     onDockChange,
     isPopupOpen: controlledPopupOpen,
     onPopupChange,
+    draggable = true,
   } = config;
 
   const buttonRef = useRef<HTMLDivElement>(null);
@@ -254,7 +255,7 @@ export function useEdgeDock(config: EdgeDockConfig = {}): UseEdgeDockReturn {
       const viewport = getViewport();
       const buttonRect = buttonRef.current.getBoundingClientRect();
       const buttonDimensions = { width: buttonRect.width, height: buttonRect.height };
-      
+
       // Set initial position on client after mount
       let initialPos = { x: viewport.width - 60, y: viewport.height - 60 };
       initialPos = constrainToViewport(initialPos, viewport, buttonDimensions, edgeOffset);
@@ -307,7 +308,7 @@ export function useEdgeDock(config: EdgeDockConfig = {}): UseEdgeDockReturn {
     if (isPopupOpen && buttonRef.current && popupRef.current) {
       const buttonRect = buttonRef.current.getBoundingClientRect();
       const popupRect = popupRef.current.getBoundingClientRect();
-      
+
       const result = calculatePopupPosition(
         position,
         { width: buttonRect.width, height: buttonRect.height },
@@ -327,11 +328,11 @@ export function useEdgeDock(config: EdgeDockConfig = {}): UseEdgeDockReturn {
 
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Node;
-      
+
       // Check if click is outside both button and popup
       const isOutsideButton = buttonRef.current && !buttonRef.current.contains(target);
       const isOutsidePopup = popupRef.current && !popupRef.current.contains(target);
-      
+
       if (isOutsideButton && isOutsidePopup) {
         closePopup();
       }
@@ -381,7 +382,7 @@ export function useEdgeDock(config: EdgeDockConfig = {}): UseEdgeDockReturn {
 
   // Pointer down handler
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    if (!buttonRef.current) return;
+    if (!buttonRef.current || !draggable) return;
 
     e.preventDefault();
     e.stopPropagation();
@@ -401,7 +402,7 @@ export function useEdgeDock(config: EdgeDockConfig = {}): UseEdgeDockReturn {
 
     setIsDragging(true);
     setIsAnimating(false);
-  }, [position, isPopupOpen]);
+  }, [position, isPopupOpen, draggable]);
 
   // Pointer move handler
   useEffect(() => {
@@ -446,7 +447,7 @@ export function useEdgeDock(config: EdgeDockConfig = {}): UseEdgeDockReturn {
       if (animation) {
         setIsAnimating(true);
       }
-      
+
       // Snap to edge if needed
       if (buttonRef.current) {
         const buttonRect = buttonRef.current.getBoundingClientRect();
@@ -484,7 +485,7 @@ export function useEdgeDock(config: EdgeDockConfig = {}): UseEdgeDockReturn {
       e.stopPropagation();
       return;
     }
-    
+
     togglePopup();
   }, [togglePopup]);
 
@@ -523,7 +524,7 @@ export function useEdgeDock(config: EdgeDockConfig = {}): UseEdgeDockReturn {
     top: 0,
     transform: `translate3d(${position.x}px, ${position.y}px, 0) translate(-50%, -50%)`,
     transition: isAnimating && animation ? 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)' : 'none',
-    cursor: isDragging ? 'grabbing' : 'grab',
+    cursor: draggable ? (isDragging ? 'grabbing' : 'grab') : 'pointer',
     touchAction: 'none',
     userSelect: 'none',
     zIndex,

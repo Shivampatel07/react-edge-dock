@@ -68,6 +68,8 @@ export interface EdgeDockConfig {
   isPopupOpen?: boolean;
   /** Callback when popup state changes */
   onPopupChange?: (isOpen: boolean) => void;
+  /** Whether the button is draggable. Defaults to true. */
+  draggable?: boolean;
 }
 
 /**

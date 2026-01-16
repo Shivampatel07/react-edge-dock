@@ -32,6 +32,7 @@ export function EdgeDock(props: EdgeDockProps) {
     onDockChange,
     isPopupOpen,
     onPopupChange,
+    draggable,
   } = props;
 
   const {
@@ -54,6 +55,7 @@ export function EdgeDock(props: EdgeDockProps) {
     onDockChange,
     isPopupOpen,
     onPopupChange,
+    draggable,
   });
 
   // Render button content
@@ -67,7 +69,7 @@ export function EdgeDock(props: EdgeDockProps) {
   // Render popup content
   const renderPopup = () => {
     if (!popup) return null;
-    
+
     if (typeof popup === 'function') {
       return popup(state, closePopup);
     }
